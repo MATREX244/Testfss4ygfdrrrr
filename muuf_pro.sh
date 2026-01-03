@@ -175,11 +175,27 @@ fuzzing() {
         done
     fi
 
-    # 5.2 XSS Preparation
-    log "INFO" "Preparing parameters for XSS/DOM analysis..."
+    # 5.2 XSS Active Testing
+    log "INFO" "Starting Active XSS Testing..."
     mkdir -p "$OUTPUT_DIR/vulns/xss"
+    
     # Filter parameters that are likely vulnerable to XSS
     grep -E "(\?|&)(id|name|search|query|url|redirect|callback|jsonp|email|user)=" "$OUTPUT_DIR/endpoints/params.txt" > "$OUTPUT_DIR/vulns/xss/potential_xss.txt"
+    
+    if [ -s "$OUTPUT_DIR/vulns/xss/potential_xss.txt" ]; then
+        log "INFO" "Fuzzing potential XSS parameters with elite payloads..."
+        local xss_wordlist="./wordlists/xss_elite.txt"
+        if [ -f "$xss_wordlist" ]; then
+            # Fuzzing with FFUF and looking for reflections or successful injections
+            # Note: In a real scenario, we'd use tools like dalfox for better detection
+            head -n 50 "$OUTPUT_DIR/vulns/xss/potential_xss.txt" | while read -r target; do
+                local base_url=$(echo "$target" | cut -d'=' -f1)
+                ffuf -u "${base_url}=FUZZ" -w "$xss_wordlist" -mc 200 -silent -o "$OUTPUT_DIR/vulns/xss/ffuf_$(echo $base_url | sed 's/[^a-zA-Z0-9]/_/g').json"
+            done
+        else
+            log "WARN" "XSS wordlist not found. Skipping active test."
+        fi
+    fi
 }
 
 # 6. JS Analysis & Secrets

