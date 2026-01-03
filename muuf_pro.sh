@@ -114,7 +114,21 @@ endpoints() {
     
     # Extract Parameters for Fuzzing
     grep "=" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/params.txt"
+
+    # --- Advanced ID & UUID Extraction (For IDOR Hunting) ---
+    log "ACT" "Extracting UUIDs and Modern IDs for IDOR analysis..."
+    mkdir -p "$OUTPUT_DIR/endpoints/idor_prep"
     
+    # Regex for UUID (v1-v5)
+    grep -E "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/idor_prep/uuids.txt"
+    
+    # Regex for potential Hash IDs (MD5, SHA1, etc. in URLs)
+    grep -E "/[0-9a-fA-F]{32}|/[0-9a-fA-F]{40}" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/idor_prep/hash_ids.txt"
+    
+    # Extracting API endpoints that look like /api/v1/resource/ID
+    grep -E "/api/v[0-9]/" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/idor_prep/api_endpoints.txt"
+
+    log "INFO" "UUIDs found: $(wc -l < "$OUTPUT_DIR/endpoints/idor_prep/uuids.txt" 2>/dev/null || echo 0)"
     log "INFO" "Total endpoints discovered: $(wc -l < "$OUTPUT_DIR/endpoints/all_urls.txt")"
 }
 
