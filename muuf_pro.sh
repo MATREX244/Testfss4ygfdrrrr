@@ -146,17 +146,57 @@ vuln_scan() {
     fi
 }
 
-# 5. Advanced Fuzzing (FFUF)
+# 5. Advanced Fuzzing & Bypasses
 fuzzing() {
-    log "ACT" "Starting Smart Fuzzing..."
-    mkdir -p "$OUTPUT_DIR/fuzzing"
+    log "ACT" "Starting Advanced Fuzzing & Bypasses..."
+    mkdir -p "$OUTPUT_DIR/fuzzing/403bypasses"
     
-    # Fuzzing for sensitive files on live hosts
-    for url in $(cat "$OUTPUT_DIR/probing/urls.txt" | head -n 20); do
-        local target_name=$(echo $url | sed 's/[^a-zA-Z0-9]/_/g')
-        log "INFO" "Fuzzing $url..."
-        ffuf -u "$url/FUZZ" -w "/home/ubuntu/muuf_pro/wordlists/dicc.txt" -mc 200,403 -silent -t 50 -o "$OUTPUT_DIR/fuzzing/$target_name.json"
-    done
+    # 5.1 403 Bypass Logic
+    log "INFO" "Testing 403 Bypasses on restricted endpoints..."
+    # Get 403 endpoints from httpx results
+    grep "403" "$OUTPUT_DIR/probing/live.txt" | awk '{print $1}' > "$OUTPUT_DIR/fuzzing/403bypasses/targets.txt"
+    
+    if [ -s "$OUTPUT_DIR/fuzzing/403bypasses/targets.txt" ]; then
+        for target in $(cat "$OUTPUT_DIR/fuzzing/403bypasses/targets.txt"); do
+            log "INFO" "Attempting advanced bypass on $target"
+            
+            # 1. Header Bypasses via Curl
+            curl -s -H "X-Forwarded-For: 127.0.0.1" "$target" -o /dev/null -w "%{http_code}" | grep "200" && log "ACT" "Bypass found on $target via X-Forwarded-For!"
+            
+            # 2. Path Bypasses via FFUF
+            local target_name=$(echo $target | sed 's/[^a-zA-Z0-9]/_/g')
+            # Usando caminho relativo para a wordlist no repositório
+            local wordlist_path="./wordlists/403_bypass.txt"
+            if [ -f "$wordlist_path" ]; then
+                ffuf -u "$target/FUZZ" -w "$wordlist_path" -mc 200,206,301,302 -silent -o "$OUTPUT_DIR/fuzzing/403bypasses/ffuf_$target_name.json"
+            else
+                log "WARN" "Wordlist $wordlist_path not found. Skipping FFUF bypass."
+            fi
+        done
+    fi
+
+    # 5.2 XSS Preparation
+    log "INFO" "Preparing parameters for XSS/DOM analysis..."
+    mkdir -p "$OUTPUT_DIR/vulns/xss"
+    # Filter parameters that are likely vulnerable to XSS
+    grep -E "(\?|&)(id|name|search|query|url|redirect|callback|jsonp|email|user)=" "$OUTPUT_DIR/endpoints/params.txt" > "$OUTPUT_DIR/vulns/xss/potential_xss.txt"
+}
+
+# 6. JS Analysis & Secrets
+js_analysis() {
+    log "ACT" "Analyzing JavaScript files for secrets and hidden endpoints..."
+    mkdir -p "$OUTPUT_DIR/js_analysis"
+    
+    if [ -s "$OUTPUT_DIR/endpoints/js_files.txt" ]; then
+        # Using Nuclei for JS secrets (if templates available)
+        nuclei -l "$OUTPUT_DIR/endpoints/js_files.txt" -t /home/ubuntu/nuclei-templates/http/exposures/ -silent -o "$OUTPUT_DIR/js_analysis/secrets.txt"
+        
+        # Simple grep for common secrets
+        log "INFO" "Grepping for common secrets in JS..."
+        for js in $(cat "$OUTPUT_DIR/endpoints/js_files.txt" | head -n 50); do
+            curl -s "$js" | grep -iE "api_key|secret|password|aws_access_key|token" >> "$OUTPUT_DIR/js_analysis/grep_secrets.txt"
+        done
+    fi
 }
 
 # --- Execution Flow ---
@@ -190,6 +230,8 @@ main() {
     probing
     endpoints
     vuln_scan
+    fuzzing
+    js_analysis
     
     log "INFO" "Scan completed for $DOMAIN"
     log "INFO" "Results saved in $OUTPUT_DIR"

