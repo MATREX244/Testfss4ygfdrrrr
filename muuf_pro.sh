@@ -1,12 +1,11 @@
 #!/bin/bash
 
 # =============================================================================
-# muuf PRO - Advanced Bug Bounty Automation Framework
-# Inspired by 6-figure hunters methodology
-# Version: 2.0.0-PRO
+# muuf PRO v2.1 - Ultimate Bug Bounty Automation Framework
+# Refactored for Stability, Performance, and Elite Methodology
 # =============================================================================
 
-# --- Colors ---
+# --- Colors & UI ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -15,12 +14,14 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# --- Global Variables ---
-VERSION="2.0.0-PRO"
+# --- Global Settings ---
+VERSION="2.1.0-ELITE"
 DOMAIN=""
 OUTPUT_DIR=""
 THREADS=50
+TIMEOUT=30
 SILENT=false
+DEBUG=false
 
 # --- Banner ---
 show_banner() {
@@ -31,191 +32,170 @@ show_banner() {
     echo "██║╚██╔╝██║██║   ██║██║   ██║██╔══╝      ██╔═══╝ ██╔══██╗██║   ██║"
     echo "██║ ╚═╝ ██║╚██████╔╝╚██████╔╝██║         ██║     ██║  ██║╚██████╔╝"
     echo "╚═╝     ╚═╝ ╚═════╝  ╚═════╝ ╚═╝         ╚═╝     ╚═╝  ╚═╝ ╚═════╝ "
-    echo -e "      Advanced Bug Bounty Automation Framework v$VERSION${NC}\n"
+    echo -e "      ${PURPLE}Elite Bug Bounty Automation Framework v$VERSION${NC}\n"
 }
 
-# --- Logging ---
+# --- Enhanced Logging ---
 log() {
     local LEVEL=$1
     local MSG=$2
+    local TIMESTAMP=$(date +"%H:%M:%S")
     case "$LEVEL" in
-        "INFO") echo -e "${GREEN}[+]${NC} $MSG" ;;
-        "WARN") echo -e "${YELLOW}[!]${NC} $MSG" ;;
-        "ERR")  echo -e "${RED}[-]${NC} $MSG" ;;
-        "ACT")  echo -e "${PURPLE}[*]${NC} $MSG" ;;
+        "INFO") echo -e "${BLUE}[$TIMESTAMP]${NC} ${GREEN}[+]${NC} $MSG" ;;
+        "WARN") echo -e "${BLUE}[$TIMESTAMP]${NC} ${YELLOW}[!]${NC} $MSG" ;;
+        "ERR")  echo -e "${BLUE}[$TIMESTAMP]${NC} ${RED}[-]${NC} $MSG" ;;
+        "ACT")  echo -e "${BLUE}[$TIMESTAMP]${NC} ${PURPLE}[*]${NC} $MSG" ;;
     esac
 }
 
+# --- Error Handling & Cleanup ---
+cleanup() {
+    log "WARN" "Interrupted! Cleaning up temporary files..."
+    exit 1
+}
+trap cleanup SIGINT SIGTERM
+
 # --- Dependency Check ---
 check_deps() {
-    local deps=("subfinder" "amass" "httpx" "nuclei" "katana" "gau" "ffuf" "naabu" "anew" "notify")
+    log "ACT" "Checking dependencies..."
+    local missing_deps=()
+    local deps=("subfinder" "amass" "httpx" "nuclei" "katana" "gau" "ffuf" "anew" "notify" "assetfinder")
+    
+    # Adicionar o caminho do Go ao PATH atual para garantir que as ferramentas sejam encontradas
+    export PATH=$PATH:$HOME/go/bin:/usr/local/go/bin
+    
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
-            log "WARN" "Dependency '$dep' not found. Some features may be disabled."
+            missing_deps+=("$dep")
         fi
     done
+
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        log "ERR" "The following tools are missing: ${missing_deps[*]}"
+        log "WARN" "Please run './install.sh' to install all dependencies."
+        exit 1
+    else
+        log "INFO" "All dependencies are satisfied."
+    fi
 }
 
-# --- Main Modules ---
-
-# 1. Passive & Active Recon
-recon() {
-    log "ACT" "Starting Reconnaissance for $DOMAIN"
-    mkdir -p "$OUTPUT_DIR/recon"
+# --- Directory Setup ---
+setup_dirs() {
+    [[ -z "$DOMAIN" ]] && { log "ERR" "Domain is required. Use -d domain.com"; exit 1; }
     
-    # Subdomain Enumeration
+    if [[ -z "$OUTPUT_DIR" ]]; then
+        OUTPUT_DIR="results/$DOMAIN-$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    mkdir -p "$OUTPUT_DIR"/{recon,probing,endpoints,vulns,js_analysis,fuzzing}
+    log "INFO" "Workspace initialized: $OUTPUT_DIR"
+}
+
+# --- 1. Reconnaissance ---
+run_recon() {
+    log "ACT" "Phase 1: Subdomain Enumeration"
+    
     log "INFO" "Running Subfinder..."
-    subfinder -d "$DOMAIN" -silent -all -o "$OUTPUT_DIR/recon/subfinder.txt"
+    subfinder -d "$DOMAIN" -all -silent -o "$OUTPUT_DIR/recon/subfinder.txt" &>/dev/null
     
     log "INFO" "Running Assetfinder..."
-    assetfinder --subs-only "$DOMAIN" | anew "$OUTPUT_DIR/recon/assetfinder.txt"
+    assetfinder --subs-only "$DOMAIN" | anew "$OUTPUT_DIR/recon/assetfinder.txt" &>/dev/null
     
-    # Passive Amass (Only if installed)
     if command -v amass &> /dev/null; then
-        log "INFO" "Running Amass Passive..."
-        amass enum -passive -d "$DOMAIN" -silent -o "$OUTPUT_DIR/recon/amass.txt"
+        log "INFO" "Running Amass (Passive)..."
+        amass enum -passive -d "$DOMAIN" -silent -o "$OUTPUT_DIR/recon/amass.txt" &>/dev/null
+    fi
+    
+    log "INFO" "Fetching from crt.sh..."
+    curl -s "https://crt.sh/?q=%25.$DOMAIN&output=json" | jq -r '.[].name_value' 2>/dev/null | sed 's/\*\.//g' | sort -u | anew "$OUTPUT_DIR/recon/crtsh.txt" &>/dev/null
+
+    cat "$OUTPUT_DIR/recon/"*.txt | sort -u | anew "$OUTPUT_DIR/recon/all_subdomains.txt" > /dev/null
+    local total=$(wc -l < "$OUTPUT_DIR/recon/all_subdomains.txt")
+    log "INFO" "Total unique subdomains found: $total"
+}
+
+# --- 2. Probing ---
+run_probing() {
+    log "ACT" "Phase 2: Probing for Live Hosts"
+    
+    if [[ ! -s "$OUTPUT_DIR/recon/all_subdomains.txt" ]]; then
+        log "ERR" "No subdomains found to probe."
+        return
     fi
 
-    # Merge and Sort
-    cat "$OUTPUT_DIR/recon/"*.txt | sort -u | anew "$OUTPUT_DIR/recon/all_subdomains.txt"
-    log "INFO" "Total unique subdomains: $(wc -l < "$OUTPUT_DIR/recon/all_subdomains.txt")"
+    cat "$OUTPUT_DIR/recon/all_subdomains.txt" | httpx \
+        -threads "$THREADS" \
+        -timeout "$TIMEOUT" \
+        -silent \
+        -title -tech-detect -status-code \
+        -follow-redirects \
+        -o "$OUTPUT_DIR/probing/httpx_full.txt" &>/dev/null
+
+    cat "$OUTPUT_DIR/probing/httpx_full.txt" | awk '{print $1}' | anew "$OUTPUT_DIR/probing/live_urls.txt" > /dev/null
+    
+    local live_count=$(wc -l < "$OUTPUT_DIR/probing/live_urls.txt")
+    log "INFO" "Live hosts identified: $live_count"
 }
 
-# 2. Probing & Port Scanning
-probing() {
-    log "ACT" "Probing for live hosts..."
-    mkdir -p "$OUTPUT_DIR/probing"
+# --- 3. Endpoint Discovery ---
+run_endpoints() {
+    log "ACT" "Phase 3: Deep Endpoint Discovery"
     
-    cat "$OUTPUT_DIR/recon/all_subdomains.txt" | httpx -silent -threads "$THREADS" -title -tech-detect -status-code -follow-redirects -o "$OUTPUT_DIR/probing/live.txt"
-    
-    # Extract only URLs for next tools
-    cat "$OUTPUT_DIR/probing/live.txt" | awk '{print $1}' | anew "$OUTPUT_DIR/probing/urls.txt"
-    log "INFO" "Live hosts found: $(wc -l < "$OUTPUT_DIR/probing/urls.txt")"
-}
+    if [[ ! -s "$OUTPUT_DIR/probing/live_urls.txt" ]]; then
+        log "ERR" "No live hosts to crawl."
+        return
+    fi
 
-# 3. Endpoint Discovery (The "Gold Mine")
-endpoints() {
-    log "ACT" "Discovering Endpoints & Parameters..."
-    mkdir -p "$OUTPUT_DIR/endpoints"
+    log "INFO" "Fetching history from Gau..."
+    cat "$OUTPUT_DIR/recon/all_subdomains.txt" | gau --subs --threads 10 | anew "$OUTPUT_DIR/endpoints/gau.txt" &>/dev/null
     
-    # Gau (Get All URLs)
-    log "INFO" "Fetching URLs from Gau..."
-    cat "$OUTPUT_DIR/recon/all_subdomains.txt" | gau --subs --threads 10 | anew "$OUTPUT_DIR/endpoints/gau.txt"
-    
-    # Katana (Active Crawling)
     log "INFO" "Crawling with Katana..."
-    katana -list "$OUTPUT_DIR/probing/urls.txt" -silent -nc -jc -kf all -d 3 -o "$OUTPUT_DIR/endpoints/katana.txt"
+    katana -list "$OUTPUT_DIR/probing/live_urls.txt" -silent -nc -jc -kf all -d 3 -o "$OUTPUT_DIR/endpoints/katana.txt" &>/dev/null
     
-    # Merge and Filter
-    cat "$OUTPUT_DIR/endpoints/"*.txt | sort -u | anew "$OUTPUT_DIR/endpoints/all_urls.txt"
+    cat "$OUTPUT_DIR/endpoints/"*.txt | sort -u | anew "$OUTPUT_DIR/endpoints/all_urls.txt" > /dev/null
     
-    # Extract JS files
-    grep -E "\.js(\?|$)" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/js_files.txt"
+    grep -E "\.js(\?|$)" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/js_files.txt" > /dev/null
+    grep "=" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/params.txt" > /dev/null
     
-    # Extract Parameters for Fuzzing
-    grep "=" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/params.txt"
-
-    # --- Advanced ID & UUID Extraction (For IDOR Hunting) ---
-    log "ACT" "Extracting UUIDs and Modern IDs for IDOR analysis..."
-    mkdir -p "$OUTPUT_DIR/endpoints/idor_prep"
-    
-    # Regex for UUID (v1-v5)
-    grep -E "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/idor_prep/uuids.txt"
-    
-    # Regex for potential Hash IDs (MD5, SHA1, etc. in URLs)
-    grep -E "/[0-9a-fA-F]{32}|/[0-9a-fA-F]{40}" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/idor_prep/hash_ids.txt"
-    
-    # Extracting API endpoints that look like /api/v1/resource/ID
-    grep -E "/api/v[0-9]/" "$OUTPUT_DIR/endpoints/all_urls.txt" | anew "$OUTPUT_DIR/endpoints/idor_prep/api_endpoints.txt"
-
-    log "INFO" "UUIDs found: $(wc -l < "$OUTPUT_DIR/endpoints/idor_prep/uuids.txt" 2>/dev/null || echo 0)"
-    log "INFO" "Total endpoints discovered: $(wc -l < "$OUTPUT_DIR/endpoints/all_urls.txt")"
+    log "INFO" "Total endpoints: $(wc -l < "$OUTPUT_DIR/endpoints/all_urls.txt")"
 }
 
-# 4. Vulnerability Scanning (Nuclei)
-vuln_scan() {
-    log "ACT" "Running Nuclei Vulnerability Scan..."
-    mkdir -p "$OUTPUT_DIR/vulns"
+# --- 4. Vulnerability Scanning ---
+run_vulns() {
+    log "ACT" "Phase 4: Vulnerability Scanning"
     
-    # Run Nuclei on live hosts
-    nuclei -l "$OUTPUT_DIR/probing/urls.txt" -severity critical,high,medium -silent -o "$OUTPUT_DIR/vulns/nuclei_results.txt"
-    
-    # Notify if findings (if notify is configured)
-    if [ -s "$OUTPUT_DIR/vulns/nuclei_results.txt" ] && command -v notify &> /dev/null; then
+    if [[ ! -s "$OUTPUT_DIR/probing/live_urls.txt" ]]; then
+        return
+    fi
+
+    log "INFO" "Running Nuclei (Critical/High/Medium)..."
+    nuclei -l "$OUTPUT_DIR/probing/live_urls.txt" \
+        -severity critical,high,medium \
+        -silent -o "$OUTPUT_DIR/vulns/nuclei_results.txt"
+
+    if [[ -s "$OUTPUT_DIR/vulns/nuclei_results.txt" ]] && command -v notify &> /dev/null; then
         cat "$OUTPUT_DIR/vulns/nuclei_results.txt" | notify -silent
     fi
 }
 
-# 5. Advanced Fuzzing & Bypasses
-fuzzing() {
-    log "ACT" "Starting Advanced Fuzzing & Bypasses..."
-    mkdir -p "$OUTPUT_DIR/fuzzing/403bypasses"
+# --- 5. Advanced Fuzzing ---
+run_fuzzing() {
+    log "ACT" "Phase 5: Advanced Fuzzing & Bypasses"
     
-    # 5.1 403 Bypass Logic
-    log "INFO" "Testing 403 Bypasses on restricted endpoints..."
-    # Get 403 endpoints from httpx results
-    grep "403" "$OUTPUT_DIR/probing/live.txt" | awk '{print $1}' > "$OUTPUT_DIR/fuzzing/403bypasses/targets.txt"
+    grep "403" "$OUTPUT_DIR/probing/httpx_full.txt" | awk '{print $1}' > "$OUTPUT_DIR/fuzzing/403_targets.txt"
     
-    if [ -s "$OUTPUT_DIR/fuzzing/403bypasses/targets.txt" ]; then
-        for target in $(cat "$OUTPUT_DIR/fuzzing/403bypasses/targets.txt"); do
-            log "INFO" "Attempting advanced bypass on $target"
-            
-            # 1. Header Bypasses via Curl
-            curl -s -H "X-Forwarded-For: 127.0.0.1" "$target" -o /dev/null -w "%{http_code}" | grep "200" && log "ACT" "Bypass found on $target via X-Forwarded-For!"
-            
-            # 2. Path Bypasses via FFUF
-            local target_name=$(echo $target | sed 's/[^a-zA-Z0-9]/_/g')
-            # Usando caminho relativo para a wordlist no repositório
-            local wordlist_path="./wordlists/403_bypass.txt"
-            if [ -f "$wordlist_path" ]; then
-                ffuf -u "$target/FUZZ" -w "$wordlist_path" -mc 200,206,301,302 -silent -o "$OUTPUT_DIR/fuzzing/403bypasses/ffuf_$target_name.json"
-            else
-                log "WARN" "Wordlist $wordlist_path not found. Skipping FFUF bypass."
-            fi
-        done
-    fi
-
-    # 5.2 XSS Active Testing
-    log "INFO" "Starting Active XSS Testing..."
-    mkdir -p "$OUTPUT_DIR/vulns/xss"
-    
-    # Filter parameters that are likely vulnerable to XSS
-    grep -E "(\?|&)(id|name|search|query|url|redirect|callback|jsonp|email|user)=" "$OUTPUT_DIR/endpoints/params.txt" > "$OUTPUT_DIR/vulns/xss/potential_xss.txt"
-    
-    if [ -s "$OUTPUT_DIR/vulns/xss/potential_xss.txt" ]; then
-        log "INFO" "Fuzzing potential XSS parameters with elite payloads..."
-        local xss_wordlist="./wordlists/xss_elite.txt"
-        if [ -f "$xss_wordlist" ]; then
-            # Fuzzing with FFUF and looking for reflections or successful injections
-            # Note: In a real scenario, we'd use tools like dalfox for better detection
-            head -n 50 "$OUTPUT_DIR/vulns/xss/potential_xss.txt" | while read -r target; do
-                local base_url=$(echo "$target" | cut -d'=' -f1)
-                ffuf -u "${base_url}=FUZZ" -w "$xss_wordlist" -mc 200 -silent -o "$OUTPUT_DIR/vulns/xss/ffuf_$(echo $base_url | sed 's/[^a-zA-Z0-9]/_/g').json"
-            done
-        else
-            log "WARN" "XSS wordlist not found. Skipping active test."
+    if [[ -s "$OUTPUT_DIR/fuzzing/403_targets.txt" ]]; then
+        local wordlist="./wordlists/403_bypass.txt"
+        if [[ -f "$wordlist" ]]; then
+            while read -r target; do
+                log "INFO" "Testing bypass on: $target"
+                ffuf -u "$target/FUZZ" -w "$wordlist" -mc 200,206 -silent -o "$OUTPUT_DIR/fuzzing/ffuf_403_$(date +%s).json" &>/dev/null
+            done < "$OUTPUT_DIR/fuzzing/403_targets.txt"
         fi
     fi
 }
 
-# 6. JS Analysis & Secrets
-js_analysis() {
-    log "ACT" "Analyzing JavaScript files for secrets and hidden endpoints..."
-    mkdir -p "$OUTPUT_DIR/js_analysis"
-    
-    if [ -s "$OUTPUT_DIR/endpoints/js_files.txt" ]; then
-        # Using Nuclei for JS secrets (if templates available)
-        nuclei -l "$OUTPUT_DIR/endpoints/js_files.txt" -t /home/ubuntu/nuclei-templates/http/exposures/ -silent -o "$OUTPUT_DIR/js_analysis/secrets.txt"
-        
-        # Simple grep for common secrets
-        log "INFO" "Grepping for common secrets in JS..."
-        for js in $(cat "$OUTPUT_DIR/endpoints/js_files.txt" | head -n 50); do
-            curl -s "$js" | grep -iE "api_key|secret|password|aws_access_key|token" >> "$OUTPUT_DIR/js_analysis/grep_secrets.txt"
-        done
-    fi
-}
-
-# --- Execution Flow ---
+# --- Main Execution ---
 main() {
     show_banner
     
@@ -229,28 +209,17 @@ main() {
         esac
     done
 
-    if [ -z "$DOMAIN" ]; then
-        log "ERR" "Domain is required. Use -d"
-        exit 1
-    fi
-
-    if [ -z "$OUTPUT_DIR" ]; then
-        OUTPUT_DIR="results/$DOMAIN-$(date +%Y%m%d_%H%M%S)"
-    fi
-
-    mkdir -p "$OUTPUT_DIR"
-    log "INFO" "Output directory: $OUTPUT_DIR"
-    
     check_deps
-    recon
-    probing
-    endpoints
-    vuln_scan
-    fuzzing
-    js_analysis
+    setup_dirs
+    
+    run_recon
+    run_probing
+    run_endpoints
+    run_vulns
+    run_fuzzing
     
     log "INFO" "Scan completed for $DOMAIN"
-    log "INFO" "Results saved in $OUTPUT_DIR"
+    log "ACT" "Results saved in: $OUTPUT_DIR"
 }
 
 main "$@"

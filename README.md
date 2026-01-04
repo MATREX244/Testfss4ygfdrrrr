@@ -1,48 +1,74 @@
 # 🚀 muuf PRO - Bug Bounty Automation Framework
 
-O **muuf PRO** é uma evolução drástica do script original, focado em metodologias utilizadas por profissionais de elite (6-figure hunters). Ele não apenas encontra subdomínios, mas mapeia toda a superfície de ataque e identifica endpoints sensíveis.
+O **muuf PRO** é um framework de automação de reconhecimento e descoberta de vulnerabilidades, focado em metodologias utilizadas por profissionais de elite (6-figure hunters). Ele automatiza todo o fluxo de trabalho, desde a descoberta de subdomínios até a notificação de bugs críticos no seu Discord.
 
-## 🛠️ O que mudou?
+---
 
-| Funcionalidade | muuf Original | muuf PRO |
+## 🛠️ O que o muuf PRO faz?
+
+| Fase | Descrição | Ferramentas |
 | :--- | :--- | :--- |
-| **Recon** | Básico (Subfinder/Amass) | Multi-ferramenta com `anew` para evitar duplicatas |
-| **Endpoints** | Não possuía | `Katana` + `Gau` para descoberta massiva de URLs |
-| **JS Analysis** | Manual/Básica | Extração automática de arquivos JS e segredos |
-| **Fuzzing** | Simples | `FFUF` inteligente com filtragem de falsos positivos |
-| **Notificações** | Não possuía | Integração com `notify` (Discord/Slack/Telegram) |
-| **Fluxo de Dados** | Linear | Pipeline de dados (a saída de um alimenta o próximo) |
+| **Recon** | Encontra subdomínios ocultos e esquecidos. | `subfinder`, `amass`, `assetfinder`, `crt.sh` |
+| **Probing** | Verifica quais sites estão realmente ativos e quais tecnologias usam. | `httpx` |
+| **Discovery** | Mapeia todas as páginas, arquivos JS e parâmetros. | `katana`, `gau` |
+| **Vuln Scan** | Procura por falhas críticas (XSS, SQLi, SSRF, etc). | `nuclei` |
+| **Fuzzing** | Tenta burlar acessos negados (403) e encontrar diretórios. | `ffuf` |
+| **Alertas** | Envia notificações em tempo real para o seu Discord. | `notify` |
 
-## 📦 Ferramentas Necessárias
+---
 
-Para rodar o muuf PRO com 100% de eficácia, instale as seguintes ferramentas (Go-based):
-- `subfinder`, `amass`, `assetfinder` (Recon)
-- `httpx` (Probing)
-- `katana`, `gau` (Endpoints)
-- `nuclei` (Vulnerabilidades)
-- `ffuf` (Fuzzing)
-- `anew` (Manipulação de dados)
-- `notify` (Alertas)
+## 📦 Como Instalar
+
+Siga estes passos no seu Kali Linux:
+
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/MATREX244/Testfss4ygfdrrrr.git
+   cd Testfss4ygfdrrrr
+   ```
+
+2. **Rode o instalador de dependências:**
+   ```bash
+   chmod +x install.sh
+   ./install.sh
+   ```
+
+3. **Atualize seu terminal:**
+   ```bash
+   source ~/.bashrc
+   ```
+
+---
+
+## 🔔 Configurando o Discord (Opcional, mas recomendado)
+
+Para receber alertas no seu celular:
+
+1. Crie um Webhook no seu servidor do Discord.
+2. Rode o comando abaixo substituindo `SEU_LINK` pelo link do seu Webhook:
+   ```bash
+   mkdir -p ~/.config/notify/ && echo -e "discord:\n  - id: \"bug-bounty\"\n    discord_webhook_url: \"SEU_LINK\"" > ~/.config/notify/provider.yaml
+   ```
+
+---
 
 ## 🚀 Como Usar
 
-1. Dê permissão de execução:
-   ```bash
-   chmod +x muuf_pro.sh
-   ```
+Para iniciar um scan completo em um alvo:
 
-2. Inicie um scan:
-   ```bash
-   ./muuf_pro.sh -d alvo.com
-   ```
+```bash
+./muuf_pro.sh -d alvo.com
+```
 
-3. Opções avançadas:
-   ```bash
-   ./muuf_pro.sh -d alvo.com -t 100 -o /meu/caminho/resultados
-   ```
+### Opções Avançadas:
+* `-d`: Domínio alvo (obrigatório).
+* `-t`: Número de threads (padrão: 50).
+* `-o`: Diretório de saída customizado.
+
+---
 
 ## 💡 Dica de Profissional
-Os grandes hunters rodam este script em uma **VPS** (DigitalOcean/Linode) de forma contínua. Eles usam o `notify` para receber alertas no celular assim que o `nuclei` encontra uma vulnerabilidade crítica, permitindo que eles reportem o bug em minutos.
+Os grandes hunters rodam este script em uma **VPS** de forma contínua. Use o `notify` para receber alertas assim que o `nuclei` encontrar algo, permitindo que você seja o primeiro a reportar o bug!
 
 ---
 *Desenvolvido para elevar seu nível no Bug Bounty.*
